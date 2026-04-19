@@ -1,0 +1,22 @@
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: post-con-postgres
+    environment:
+      POSTGRES_DB: post_confiavel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - post-con-network
+
+volumes:
+  postgres_data:
+
+networks:
+  post-con-network:
+    driver: bridge

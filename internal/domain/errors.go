@@ -3,7 +3,9 @@ package domain
 import "errors"
 
 var (
-	ErrEmptyPlaceID        = errors.New("empty place id")
-	ErrInvalidReviewRating = errors.New("invalid review rating")
-	ErrInvalidUserID       = errors.New("invalid user id")
+	ErrBadParams   = errors.New("bad params")
+	ErrBadRequest  = errors.New("bad request")
+	ErrNotFound    = errors.New("not found")
+	ErrConflict    = errors.New("resource conflict")
+	ErrUnexpected  = errors.New("unexpected error")
 )

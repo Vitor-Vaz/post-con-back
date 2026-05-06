@@ -5,6 +5,10 @@ run:
 
 .PHONY: run
 
+.PHONY: test
+test:
+	go test ./...
+
 .PHONY: sqlc-gen
 sqlc-gen:
 	@sqlc generate -f internal/gateway/postgres/sqlc.yaml

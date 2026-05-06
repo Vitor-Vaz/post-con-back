@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,9 +26,9 @@ func NewReviewHandler(uc ReviewCreator) *ReviewHandler {
 }
 
 type createReviewRequest struct {
-	PlaceID string  `json:"place_id"`
-	UserID  string  `json:"user_id"`
-	Rating  float64 `json:"rating"`
+	PlaceID string    `json:"place_id" binding:"required"`
+	UserID  uuid.UUID `json:"user_id" binding:"required"`
+	Rating  float64   `json:"rating" binding:"required,gte=1,lte=5"`
 }
 
 type createReviewResponse struct {
@@ -42,27 +43,29 @@ type createReviewResponse struct {
 func (h *ReviewHandler) CreateReview(c *gin.Context) {
 	var req createReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrBadRequest.Error()})
 		return
 	}
-	uid, err := uuid.Parse(req.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+	placeID := strings.TrimSpace(req.PlaceID)
+	if placeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrBadParams.Error()})
 		return
 	}
 	out, err := h.uc.CreateReview(c.Request.Context(), domain.CreateReviewInput{
-		PlaceID: req.PlaceID,
-		UserID:  uid,
+		PlaceID: placeID,
+		UserID:  req.UserID,
 		Rating:  req.Rating,
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, domain.ErrEmptyPlaceID),
-			errors.Is(err, domain.ErrInvalidUserID),
-			errors.Is(err, domain.ErrInvalidReviewRating):
+		case errors.Is(err, domain.ErrBadParams):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrConflict):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrUnexpected.Error()})
 		}
 		return
 	}

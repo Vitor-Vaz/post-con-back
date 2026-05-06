@@ -3,6 +3,9 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"errors"
+
+	"github.com/lib/pq"
 
 	"post-con-back/internal/domain"
 	"post-con-back/internal/gateway/postgres/sqlcgen"
@@ -23,7 +26,7 @@ func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateRe
 		Rating:  in.Rating,
 	})
 	if err != nil {
-		return domain.Review{}, err
+		return domain.Review{}, mapInsertReviewError(err)
 	}
 	return domain.Review{
 		ID:        row.ID,
@@ -33,4 +36,17 @@ func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateRe
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}, nil
+}
+
+func mapInsertReviewError(err error) error {
+	var pgErr *pq.Error
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23514", "23502":
+			return domain.ErrBadParams
+		case "23505":
+			return domain.ErrConflict
+		}
+	}
+	return errors.Join(domain.ErrUnexpected, err)
 }

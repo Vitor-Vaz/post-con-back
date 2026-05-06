@@ -1,6 +1,26 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type Review struct {
+	ID        uuid.UUID
+	PlaceID   string
+	UserID    uuid.UUID
+	Rating    float64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type CreateReviewInput struct {
+	PlaceID string
+	UserID  uuid.UUID
+	Rating  float64
+}
 
 type ReviewCreatorRepository interface {
 	InsertReview(ctx context.Context, in CreateReviewInput) (Review, error)
@@ -15,8 +35,5 @@ func NewReviewCreatorUseCase(repo ReviewCreatorRepository) *ReviewCreatorUseCase
 }
 
 func (uc *ReviewCreatorUseCase) CreateReview(ctx context.Context, in CreateReviewInput) (Review, error) {
-	if err := ValidateCreateReview(in); err != nil {
-		return Review{}, err
-	}
 	return uc.repo.InsertReview(ctx, in)
 }

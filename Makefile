@@ -5,6 +5,10 @@ run:
 
 .PHONY: run
 
+.PHONY: sqlc-gen
+sqlc-gen:
+	@sqlc generate -f internal/gateway/postgres/sqlc.yaml
+
 .PHONY: migrate-create
 migrate-create:
 	@read -p "Nome da migração: " name; \

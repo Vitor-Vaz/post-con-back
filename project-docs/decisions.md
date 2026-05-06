@@ -1,38 +1,75 @@
 # Decisões relevantes
 
-Registro curto de decisões que afetam código, contrato ou operação.
+Registro de decisões que afetam código, contrato ou operação. Formato breve: **contexto → decisão → consequência**.
 
-## ADR-001 — Tudo sob `internal/` com layout inspirado no mesa-mestre
+---
 
-- **Contexto**: alinhar com projeto de referência (mesa-mestre) mantendo pacotes privados sob `internal/`.
-- **Decisão**: `internal/domain` concentra entidades e casos de uso + interfaces de repositório; `internal/app` e `internal/app/v1` para HTTP; `internal/gateway/postgres` para Postgres + sqlc.
-- **Consequência**: imports sempre prefixados com `post-con-back/internal/...`.
+## ADR-001 — Layout sob `internal/` alinhado ao mesa-mestre
 
-## ADR-002 — Modelo inicial de `reviews` enxuto
+- **Contexto:** manter referência ao projeto **mesa-mestre** (`../mesa-mestre`) e pacotes privados em Go.
+- **Decisão:** `internal/domain` (entidades, erros, caso de uso + interface de repositório); `internal/app` e `internal/app/v1` (HTTP Gin); `internal/gateway/postgres` (repositórios, sqlc, queries).
+- **Consequência:** imports `post-con-back/internal/...`; espelhar Makefile/estilo de teste no mesa quando fizer sentido.
 
-- **Contexto**: MVP antes de fechar dimensões e perfil de veículo.
-- **Decisão**: colunas `place_id`, `user_id` (UUID NOT NULL), `rating` (double, CHECK 1–5), timestamps; sem FK para `users` até existir a tabela.
-- **Consequência**: integridade de `user_id` depende da aplicação até haver FK.
+---
+
+## ADR-002 — Modelo inicial da tabela `reviews` (MVP)
+
+- **Contexto:** começar cedo com persistência sem fechar dimensões, veículo e ponderação.
+- **Decisão:** colunas `place_id` (texto, Google), `user_id` (UUID NOT NULL), `rating` (double, CHECK 1–5), `created_at` / `updated_at`; sem FK para `users` até a tabela existir.
+- **Consequência:** evolução por novas migrações; `user_id` confiável só na aplicação até haver FK.
+
+---
 
 ## ADR-003 — Postgres local na porta 5433
 
-- **Contexto**: evitar conflito com outro Postgres local (ex.: outro projeto na 5432).
-- **Decisão**: `docker-compose.yaml` publica `5433:5432`; `DATABASE_URL` / defaults do código alinhados a isso.
+- **Contexto:** evitar conflito com outro Postgres na máquina (ex.: 5432 ocupado por outro projeto).
+- **Decisão:** `docker-compose.yaml` expõe **5433** no host; default de desenvolvimento documentado nessa porta.
+- **Consequência:** `.env` / defaults locais apontam para `5433`; CI usa serviço na **5432** (padrão do container no GitHub Actions).
 
-## ADR-004 — sqlcgen versionado + `make sqlc-gen`
+---
 
-- **Contexto**: permitir build sem depender do binário `sqlc` na máquina de cada dev.
-- **Decisão**: manter pacote `internal/gateway/postgres/sqlcgen` no repositório, gerado a partir de `queries/*.sql` e `sqlc.yaml`; Makefile expõe `sqlc-gen`.
-- **Consequência**: após mudar queries ou schema de referência do sqlc, rodar `make sqlc-gen` e commitar o diff quando aplicável.
+## ADR-004 — sqlcgen versionado e `make sqlc-gen`
 
-## ADR-005 — Modelo `reviews` e ponderação em aberto
+- **Contexto:** time pode não ter o binário `sqlc` instalado em toda máquina.
+- **Decisão:** manter `internal/gateway/postgres/sqlcgen` versionado, gerado a partir de `queries/**/*.sql` e `sqlc.yaml`; expor `make sqlc-gen`.
+- **Consequência:** após mudar SQL de queries ou schema de referência do sqlc, regenerar e commitar o diff quando aplicável.
 
-- **Contexto**: a tabela atual é MVP; a justiça do score para o posto exige **ponderação** ainda não fechada.
-- **Decisão**: tratar o schema de `reviews` como **provisório**; evoluir com migrações quando a regra de ponderação e os dados necessários estiverem definidos.
-- **Consequência**: possíveis migrações futuras e ajustes em sqlc/use cases; manter compatibilidade com ambientes que já aplicaram migrações anteriores.
+---
 
-## ADR-006 — Anti-fraude com apoio de Google Maps / Places
+## ADR-005 — `reviews` e ponderação em aberto
 
-- **Contexto**: mitigar reviews falsos; o plano já cita risco de fraude.
-- **Decisão**: reservar espaço no roadmap para regras de confiança e **uso seletivo** de dados/serviços do Google Maps / Places (ex.: validação contextual), sem violar termos, cotas nem LGPD.
-- **Consequência**: novos use cases, integração e possivelmente armazenamento mínimo/cache conforme política; detalhes a especificar antes de implementar.
+- **Contexto:** score justo para o posto exige ponderação (recência, dimensões, etc.) ainda não fechada com produto.
+- **Decisão:** tratar o schema atual de `reviews` como **temporário**; evoluir com migrações quando a regra e os dados necessários estiverem definidos.
+- **Consequência:** possíveis alterações em domínio, sqlc e API; preservar compatibilidade com ambientes que já aplicaram migrações antigas (cuidado ao alterar `000002` em produção).
+
+---
+
+## ADR-006 — Anti-fraude e Google Maps / Places
+
+- **Contexto:** mitigar reviews falsos; plano de risco já cita o tema.
+- **Decisão:** reservar espaço no roadmap para regras de confiança e uso **complementar** de Maps/Places (ex.: validação contextual de `place_id`), sem violar termos, cotas nem LGPD.
+- **Consequência:** novos use cases e integração em `internal/integration/...` quando especificado; não acoplar tudo ao Maps de uma vez.
+
+---
+
+## ADR-007 — `DATABASE_URL` com `?=` e CI
+
+- **Contexto:** no Make, `DATABASE_URL=...` no Makefile **sobrescrevia** a variável de ambiente do GitHub Actions; `migrate` tentava `5433` no CI e falhava.
+- **Decisão:** usar **`DATABASE_URL ?= ...`** no Makefile (default local `…:5433/…`); workflow define **`DATABASE_URL`** para `localhost:5432` no job de testes.
+- **Consequência:** um único `make migrate-up` funciona em dev e no CI; quem rodar migrate localmente sem `.env` ainda usa o default da 5433.
+
+---
+
+## ADR-008 — `fmt-check` com `git ls-files`
+
+- **Contexto:** `find . -name '*.go'` podia incluir ruído ou divergir do que o CI realmente versiona; `fmt-check` falhava em `errors.go` sem mudança aparente no diff do autor.
+- **Decisão:** `fmt-check` roda `gofmt -l` apenas em **`git ls-files '*.go'`** (arquivos rastreados).
+- **Consequência:** CI e máquina local alinhados ao mesmo conjunto de arquivos; arquivos não rastreados não entram no check até serem `git add`.
+
+---
+
+## ADR-009 — Validação na borda HTTP, não no use case de criação
+
+- **Contexto:** evitar duplicar regras entre Gin `binding` e domínio.
+- **Decisão:** validação de formato/range de entrada no **handler** (binding + trim de `place_id`); `ReviewCreatorUseCase` delega ao repositório após a borda aceitar.
+- **Consequência:** novos callers (CLI, jobs) que chamem o use case direto precisam garantir entrada válida ou introduzir outra borda de validação.

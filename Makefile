@@ -7,7 +7,7 @@ run:
 
 .PHONY: migrate-create
 migrate-create:
-	@read -p "Migration name: " name; \
+	@read -p "Nome da migração: " name; \
 	migrate create -ext sql -dir extension/database/priv/migrations -seq $${name}
 
 .PHONY: migrate-up

@@ -5,6 +5,15 @@ run:
 
 .PHONY: run
 
+.PHONY: fmt-check
+fmt-check:
+	@test -z "$$(gofmt -l $$(find . -name '*.go' -not -path './vendor/*'))" || (gofmt -l $$(find . -name '*.go' -not -path './vendor/*') >&2; exit 1)
+
+.PHONY: lint
+lint: fmt-check
+	go vet ./...
+	go build ./...
+
 .PHONY: test
 test:
 	go test ./...

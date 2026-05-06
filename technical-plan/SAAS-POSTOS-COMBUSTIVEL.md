@@ -53,7 +53,7 @@ Sistema de **5 estrelas** como base, com regras de ponderação documentadas e v
 
 Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliações**, **ver mapa**:
 
-- **`reviews`**: identificador, `place_id` (Google), usuário (ou política para anônimo com limites), notas por dimensão (ex.: 1–5), **snapshot de contexto** na data da avaliação (combustível, perfil de veículo), timestamps.
+- **`reviews`**: identificador, `place_id` (Google), usuário (ou política para anônimo com limites), notas por dimensão (ex.: 1–5), **snapshot de contexto** na data da avaliação (combustível, perfil de veículo), timestamps. **No backend atual** a tabela `reviews` é **provisória** e será **revista** quando a **ponderação** e a política de **justiça com o posto** estiverem definidas (podem surgir colunas ou tabelas auxiliares).
 - **`users`**: quando houver login; autenticação (JWT, OAuth, etc.) a decidir.
 - **`vehicle_profile`**: no MVP pode ser colunas enumeradas ou JSON enxuto ligado à review (motor aspirado/turbo, faixa de exigência, flex predominante álcool vs gasolina, etc.).
 - **`place_scores`**: agregados por `place_id` — médias por dimensão, score composto, contagem de reviews, `last_computed_at`; recálculo no write ou job assíncrono.
@@ -95,14 +95,16 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 | 3 | Integração Google Places: cliente em `internal/integration/googlemaps`, timeouts, retries, testes com mocks |
 | 4 | API HTTP: handlers finos, use cases, validação, OpenAPI |
 | 5 | Agregação: `place_scores`, política de recência |
-| 6 | Qualidade: testes de integração (ex.: Postgres em container), CI |
-| 7 | Front (futuro): stack a definir; consumo da mesma API e mapa |
+| 6 | Modelagem e migrações: **revisar `reviews`** (e correlatos) para suportar **ponderação** e rastreabilidade; fórmula de equidade com o posto **a definir** com produto |
+| 7 | **Anti-fraude e confiança**: regras contra reviews falsos; uso complementar de **Google Maps / Places** (validação contextual, sinais de lugar), dentro de termos, cotas e LGPD |
+| 8 | Qualidade: testes de integração (ex.: Postgres em container), CI |
+| 9 | Front (futuro): stack a definir; consumo da mesma API e mapa |
 
 ---
 
 ## Riscos e mitigações
 
-- **Fraude / reviews falsos**: rate limit, sinais de anomalia, moderação futura.
+- **Fraude / reviews falsos**: rate limit, sinais de anomalia, moderação futura; **camada anti-fraude** com regras explícitas no backend; onde fizer sentido, **Google Maps / Places** como sinal de confiança (ex.: consistência de `place_id` / contexto geográfico), sem depender só de um único sinal e respeitando termos e privacidade.
 - **LGPD**: bases legais, privacidade, minimização de dados do veículo.
 - **Expectativa legal/científica**: comunicar que a nota é **percepção e contexto**, não laudo ANP; opcionalmente educação sobre canais oficiais (ANP, Procon) sem prometer precisão química.
 
@@ -120,6 +122,8 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ## Backlog de decisões pendentes
 
+- **Ponderação e justiça com o posto**: fórmula de pesos (recência, dimensões, similaridade de perfil), impacto em `reviews` e em `place_scores`.
+- **Anti-fraude**: quais sinais (incluindo Google Maps / Places), limites de uso da API, retenção de dados e experiência do usuário legítimo.
 - Autenticação: JWT vs OAuth social; reviews anônimos e limites.
 - Mapa: apenas bbox de reviews existentes vs sempre consultar Places na área.
 - Moderação: manual, reportes, automação em fases.
@@ -137,4 +141,4 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ---
 
-*Última atualização: documento de planejamento; implementação de código não iniciada.*
+*Última atualização: documento de planejamento; backend **post-con-back** em evolução (MVP parcial); modelo `reviews` e ponderação sujeitos a revisão conforme roadmap.*

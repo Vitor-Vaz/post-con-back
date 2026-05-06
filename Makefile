@@ -1,4 +1,4 @@
-DATABASE_URL=postgres://postgres:postgres@localhost:5433/post_confiavel?sslmode=disable
+DATABASE_URL ?= postgres://postgres:postgres@localhost:5433/post_confiavel?sslmode=disable
 
 run:
 	go run ./cmd/server
@@ -7,7 +7,7 @@ run:
 
 .PHONY: fmt-check
 fmt-check:
-	@test -z "$$(gofmt -l $$(find . -name '*.go' -not -path './vendor/*'))" || (gofmt -l $$(find . -name '*.go' -not -path './vendor/*') >&2; exit 1)
+	@test -z "$$(gofmt -l $$(git ls-files '*.go'))" || (gofmt -l $$(git ls-files '*.go') >&2; exit 1)
 
 .PHONY: lint
 lint: fmt-check

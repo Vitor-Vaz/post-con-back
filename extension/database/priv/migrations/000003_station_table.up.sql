@@ -6,6 +6,7 @@ CREATE TABLE station (
     latitude double precision,
     longitude double precision,
     total_score double precision NOT NULL DEFAULT 0,
+    review_count integer NOT NULL DEFAULT 0,
     summary text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),

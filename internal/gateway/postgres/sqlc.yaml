@@ -2,9 +2,7 @@ version: "2"
 sql:
   - engine: postgresql
     schema:
-      - ../../../extension/database/priv/migrations/000001_init_extensions.up.sql
-      - ../../../extension/database/priv/migrations/000002_reviews_table.up.sql
-      - ../../../extension/database/priv/migrations/000003_station_table.up.sql
+      - ../../../extension/database/priv/migrations
     queries: queries/
     gen:
       go:

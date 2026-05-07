@@ -26,34 +26,38 @@ const reviewAverageWindow = 100
 
 type ReviewCreatorRepository interface {
 	InsertReview(ctx context.Context, in CreateReviewInput) (Review, error)
-	GetRecentReviewStats(ctx context.Context, placeID string, limit int32) (int32, float64, error)
+}
+
+type StationRepository interface {
 	UpsertStationScore(ctx context.Context, placeID string, totalScore float64, reviewCount int32) error
 }
 
 type ReviewCreatorUseCase struct {
-	repo ReviewCreatorRepository
+	reviewRepo  ReviewCreatorRepository
+	stationRepo StationRepository
 }
 
-func NewReviewCreatorUseCase(repo ReviewCreatorRepository) *ReviewCreatorUseCase {
-	return &ReviewCreatorUseCase{repo: repo}
+func NewReviewCreatorUseCase(reviewRepo ReviewCreatorRepository, stationRepo StationRepository) *ReviewCreatorUseCase {
+	return &ReviewCreatorUseCase{reviewRepo: reviewRepo, stationRepo: stationRepo}
 }
 
 func (uc *ReviewCreatorUseCase) CreateReview(ctx context.Context, in CreateReviewInput) (Review, error) {
-	review, err := uc.repo.InsertReview(ctx, in)
+	review, err := uc.reviewRepo.InsertReview(ctx, in)
 	if err != nil {
 		return Review{}, err
 	}
 
-	reviewCount, ratingSum, err := uc.repo.GetRecentReviewStats(ctx, in.PlaceID, reviewAverageWindow)
+	reviewCount, ratingSum, err := uc.reviewRepo.GetRecentReviewStats(ctx, in.PlaceID, reviewAverageWindow)
 	if err != nil {
 		return Review{}, err
 	}
 	if reviewCount == 0 {
-		return review, nil
+		reviewCount = 1
+		ratingSum = review.Rating
 	}
 
 	average := ratingSum / float64(reviewCount)
-	if err := uc.repo.UpsertStationScore(ctx, in.PlaceID, average, reviewCount); err != nil {
+	if err := uc.stationRepo.UpsertStationScore(ctx, in.PlaceID, average, reviewCount); err != nil {
 		return Review{}, err
 	}
 

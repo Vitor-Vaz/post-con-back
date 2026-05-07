@@ -50,17 +50,6 @@ func (r *ReviewsRepository) GetRecentReviewStats(ctx context.Context, placeID st
 	return row.ReviewCount, row.RatingSum, nil
 }
 
-func (r *ReviewsRepository) UpsertStationScore(ctx context.Context, placeID string, totalScore float64, reviewCount int32) error {
-	if err := r.q.UpsertStationScore(ctx, sqlcgen.UpsertStationScoreParams{
-		PlaceID:     placeID,
-		TotalScore:  totalScore,
-		ReviewCount: reviewCount,
-	}); err != nil {
-		return errors.Join(domain.ErrUnexpected, err)
-	}
-	return nil
-}
-
 func mapInsertReviewError(err error) error {
 	var pgErr *pq.Error
 	if errors.As(err, &pgErr) {

@@ -12,11 +12,12 @@ import (
 )
 
 type ReviewsRepository struct {
-	q *sqlcgen.Queries
+	db *sql.DB
+	q  *sqlcgen.Queries
 }
 
 func NewReviewsRepository(db *sql.DB) *ReviewsRepository {
-	return &ReviewsRepository{q: sqlcgen.New(db)}
+	return &ReviewsRepository{db: db, q: sqlcgen.New(db)}
 }
 
 func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateReviewInput) (domain.Review, error) {
@@ -36,6 +37,28 @@ func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateRe
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}, nil
+}
+
+func (r *ReviewsRepository) GetRecentReviewStats(ctx context.Context, placeID string, limit int32) (int32, float64, error) {
+	row, err := r.q.GetRecentReviewStats(ctx, sqlcgen.GetRecentReviewStatsParams{
+		PlaceID: placeID,
+		Limit:   limit,
+	})
+	if err != nil {
+		return 0, 0, errors.Join(domain.ErrUnexpected, err)
+	}
+	return row.ReviewCount, row.RatingSum, nil
+}
+
+func (r *ReviewsRepository) UpsertStationScore(ctx context.Context, placeID string, totalScore float64, reviewCount int32) error {
+	if err := r.q.UpsertStationScore(ctx, sqlcgen.UpsertStationScoreParams{
+		PlaceID:     placeID,
+		TotalScore:  totalScore,
+		ReviewCount: reviewCount,
+	}); err != nil {
+		return errors.Join(domain.ErrUnexpected, err)
+	}
+	return nil
 }
 
 func mapInsertReviewError(err error) error {

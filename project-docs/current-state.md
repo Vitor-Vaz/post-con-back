@@ -2,7 +2,7 @@
 
 ## Em andamento
 
-Evolução da API **post-con-back** (PostoConfiável): review criável via HTTP, Postgres com migrações, CI no padrão do **mesa-mestre**. Próximos passos em `next-tasks.md`; visão de produto e roadmap em `technical-plan/SAAS-POSTOS-COMBUSTIVEL.md`.
+Evolução da API **post-con-back** (PostoConfiável): review criável via HTTP, Postgres com migrações, CI no padrão do **mesa-mestre**. Nova branch `feature/station-migration` criada para adicionar a migration de `station`. Próximos passos em `next-tasks.md`; visão de produto e roadmap em `technical-plan/SAAS-POSTOS-COMBUSTIVEL.md`.
 
 ---
 
@@ -11,7 +11,7 @@ Evolução da API **post-con-back** (PostoConfiável): review criável via HTTP,
 ### O que foi feito
 
 - **Infra local:** `docker-compose.yaml` (Postgres 15, host **5433** → container 5432, DB `post_confiavel`), `.env.example`, `.gitignore` (`/vendor`, `.env`).
-- **Banco:** `extension/database` (conexão por env); migrações golang-migrate (`uuid-ossp`, tabela **`reviews`** MVP: `place_id`, `user_id` NOT NULL, `rating` double com CHECK 1–5, timestamps, índice em `place_id`).
+- **Banco:** `extension/database` (conexão por env); migrações golang-migrate (`uuid-ossp`, tabela **`reviews`** MVP: `place_id`, `user_id` NOT NULL, `rating` double com CHECK 1–5, timestamps, índice em `place_id`). Nova migration `000003_station_table` adiciona tabela `station` para overview de posto com `place_id`, `name`, `address`, `latitude`, `longitude`, `total_score`, `summary` e timestamps.
 - **API:** Gin em `cmd/server` → `internal/app/router.go` (`/test`, `/health`, grupo `/api/v1`); **`POST /api/v1/review`** em `internal/app/v1/create_review.go` com `binding` Gin, trim de `place_id`, mapeamento de erros de domínio para HTTP.
 - **Domínio:** `internal/domain` — erros genéricos (`ErrBadParams`, `ErrBadRequest`, `ErrNotFound`, `ErrConflict`, `ErrUnexpected`); `create_review.go` com entidade `Review`, input, interface do repo e **`ReviewCreatorUseCase`** (sem revalidar o que o Gin já valida na borda).
 - **Persistência:** `internal/gateway/postgres/repositories/reviews_repository.go` + **`sqlcgen`** alinhado a `queries/reviews/insert.sql`; `make sqlc-gen` aponta para `internal/gateway/postgres/sqlc.yaml`.

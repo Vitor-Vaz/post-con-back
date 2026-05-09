@@ -12,12 +12,11 @@ import (
 )
 
 type ReviewsRepository struct {
-	db *sql.DB
-	q  *sqlcgen.Queries
+	q *sqlcgen.Queries
 }
 
-func NewReviewsRepository(db *sql.DB) *ReviewsRepository {
-	return &ReviewsRepository{db: db, q: sqlcgen.New(db)}
+func NewReviewsRepository(db sqlcgen.DBTX) *ReviewsRepository {
+	return &ReviewsRepository{q: sqlcgen.New(db)}
 }
 
 func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateReviewInput) (domain.Review, error) {

@@ -1,5 +1,9 @@
 package sqlcgen
 
+import (
+	"context"
+)
+
 const upsertStationScore = `
 INSERT INTO station (
     place_id,

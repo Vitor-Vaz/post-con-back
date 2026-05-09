@@ -26,6 +26,7 @@ const reviewAverageWindow = 100
 
 type ReviewCreatorRepository interface {
 	InsertReview(ctx context.Context, in CreateReviewInput) (Review, error)
+	GetRecentReviewStats(ctx context.Context, placeID string, limit int32) (int32, float64, error)
 }
 
 type StationRepository interface {

@@ -73,3 +73,11 @@ Registro de decisões que afetam código, contrato ou operação. Formato breve:
 - **Contexto:** evitar duplicar regras entre Gin `binding` e domínio.
 - **Decisão:** validação de formato/range de entrada no **handler** (binding + trim de `place_id`); `ReviewCreatorUseCase` delega ao repositório após a borda aceitar.
 - **Consequência:** novos callers (CLI, jobs) que chamem o use case direto precisam garantir entrada válida ou introduzir outra borda de validação.
+
+---
+
+## ADR-010 — `station` no write path da criação de review
+
+- **Contexto:** tabela `station` exige `name` NOT NULL; ainda não há integração Places no backend; o posto precisa de linha agregada ao criar review.
+- **Decisão:** no upsert após criar review, `name` no **INSERT** recebe o mesmo texto que `place_id` (placeholder); no **ON CONFLICT** atualizar só `total_score`, `review_count` e `updated_at` (não sobrescrever `name` já preenchido). Média baseada nas últimas reviews do posto (janela configurada no domínio).
+- **Consequência:** nomes iguais entre postos distintos são permitidos (unicidade é `place_id`); nome amigável e endereço vêm depois com Places ou fluxo dedicado.

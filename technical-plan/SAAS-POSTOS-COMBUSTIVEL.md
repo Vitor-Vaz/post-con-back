@@ -141,4 +141,4 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ---
 
-*Última atualização: documento de planejamento; backend **post-con-back** em evolução (MVP parcial); modelo `reviews` e ponderação sujeitos a revisão conforme roadmap.*
+*Última atualização: documento de planejamento; backend **post-con-back** em evolução (MVP parcial): já existe persistência de `reviews` e linha **`station`** atualizada na criação de review (agregados; nome de exibição ainda placeholder até Places). Modelo `reviews` e ponderação sujeitos a revisão conforme roadmap.*

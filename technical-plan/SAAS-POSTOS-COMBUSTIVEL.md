@@ -1,6 +1,6 @@
 # PostoConfiável — plano de desenvolvimento (SaaS)
 
-Documento vivo com visão de produto, decisões de escopo, roadmap técnico e integração com mapas. O código do backend e do front ainda não foi iniciado; este arquivo serve como referência para as próximas etapas.
+Documento vivo com visão de produto, decisões de escopo, roadmap técnico e integração com mapas. Este arquivo serve como referência para as próximas etapas (backend **post-con-back** em evolução).
 
 ---
 
@@ -32,6 +32,8 @@ O problema central: há muitos postos com combustível adulterado ou bombas duvi
   - características do veículo (campos enumerados no MVP, evitando texto livre demais para o agregado);
   - dimensões explícitas (ex.: qualidade percebida do combustível, honestidade do litro/bomba, atendimento, pressão comercial);
   - **recência** (avaliações antigas pesam menos).
+- **Mapa / estações**: tela com mapa e várias **`station`**; cliente envia referência geográfica + **range**; API devolve estações da região (detalhe de schema e contrato no backlog e no roadmap).
+- **Pontuação**: **MVP** com nota única **1–5**; depois **detalhar avaliações** (dimensões + snapshot veículo/combustível) e evoluir para **score** composto / `place_scores` / recência (ver fases **6–7** do roadmap).
 
 Sistema de **5 estrelas** como base, com regras de ponderação documentadas e versionáveis (ajustes sem reescrever todo o modelo de dados).
 
@@ -51,8 +53,9 @@ Sistema de **5 estrelas** como base, com regras de ponderação documentadas e v
 
 ## Modelo de dados (conceitual)
 
-Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliações**, **ver mapa**:
+Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliações**, **ver mapa**, **listar stations**:
 
+- **`station`**: `place_id`, dados de listagem/detalhe, coordenadas quando houver; suporta mapa e **GET** por região (ver backlog: **range** em coluna vs só parâmetro de busca).
 - **`reviews`**: identificador, `place_id` (Google), usuário (ou política para anônimo com limites), notas por dimensão (ex.: 1–5), **snapshot de contexto** na data da avaliação (combustível, perfil de veículo), timestamps. **No backend atual** a tabela `reviews` é **provisória** e será **revista** quando a **ponderação** e a política de **justiça com o posto** estiverem definidas (podem surgir colunas ou tabelas auxiliares).
 - **`users`**: quando houver login; autenticação (JWT, OAuth, etc.) a decidir.
 - **`vehicle_profile`**: no MVP pode ser colunas enumeradas ou JSON enxuto ligado à review (motor aspirado/turbo, faixa de exigência, flex predominante álcool vs gasolina, etc.).
@@ -80,8 +83,10 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 | Caso de uso | Descrição |
 |-------------|-----------|
 | Avaliar | Criar review com `place_id` validado (ex.: Details uma vez), contexto veículo/combustível, dimensões; atualizar agregados. |
-| Ver avaliações | Listar por `place_id`, paginação, filtros por combustível/perfil; opcional score para o perfil atual. |
+| Ver avaliações | `GET` por `place_id`: **preview** com `limit=10`; mesma rota com **`limit` maior + paginação** para lista completa; filtros por combustível/perfil e score por perfil ficam para depois do MVP simples. |
 | Ver mapa | Combinar busca Places com a área solicitada; decisão de MVP: mapa tende a precisar Places para mostrar postos ainda sem review. |
+| Listar stations | `GET` lista **genérica** no primeiro corte; evoluir para **região + range** (centro/viewport + distância) para alimentar mapa/lista. |
+| Obter station | `GET` **detalhe** de uma `station` (id interno ou `place_id`). |
 
 ---
 
@@ -93,12 +98,12 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 | 1 | Esqueleto Go + Gin: `cmd/server`, config por env, healthcheck, logging, shutdown gracioso, migrações PostgreSQL |
 | 2 | Domínio + persistência: `Review`, repositórios, índices em `place_id` e `created_at` |
 | 3 | Integração Google Places: cliente em `internal/integration/googlemaps`, timeouts, retries, testes com mocks |
-| 4 | API HTTP: handlers finos, use cases, validação, OpenAPI |
-| 5 | Agregação: `place_scores`, política de recência |
-| 6 | Modelagem e migrações: **revisar `reviews`** (e correlatos) para suportar **ponderação** e rastreabilidade; fórmula de equidade com o posto **a definir** com produto |
-| 7 | **Anti-fraude e confiança**: regras contra reviews falsos; uso complementar de **Google Maps / Places** (validação contextual, sinais de lugar), dentro de termos, cotas e LGPD |
-| 8 | Qualidade: testes de integração (ex.: Postgres em container), CI |
-| 9 | Front (futuro): stack a definir; consumo da mesma API e mapa |
+| 4 | API HTTP: handlers finos, use cases, validação, OpenAPI — **GET** lista **`station`** (genérica), **GET** detalhe **`station`**, **GET** **`reviews`** por `place_id` (`limit=10` default / preview; mesma rota com paginação e `limit` maior) |
+| 5 | Mapa na API: **GET `station` por região** (range + geo); fechar decisão de **range** em `station` vs só query; índices geográficos |
+| 6 | Agregação: `place_scores`, política de recência |
+| 7 | Modelagem e migrações: **revisar `reviews`** (e correlatos) para suportar **ponderação** e rastreabilidade; fórmula de equidade com o posto **a definir** com produto |
+| 8 | **Anti-fraude e confiança**: regras contra reviews falsos; uso complementar de **Google Maps / Places** (validação contextual, sinais de lugar), dentro de termos, cotas e LGPD |
+| 9 | Qualidade (integração/CI) e **front** futuro: stack a definir; consumo da mesma API e mapa |
 
 ---
 
@@ -122,6 +127,9 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ## Backlog de decisões pendentes
 
+- **`station` + range:** coluna(s) de **alcance** na tabela vs **range só na rota**; request (raio km, bbox); índices geo.
+- **GET stations por região:** parâmetros obrigatórios, teto de linhas, ordenação; postos sem review via Places na mesma resposta ou fluxo separado.
+- **GET reviews:** `limit` máximo; paginação (`cursor` vs offset); ordenação (ex.: `created_at` DESC).
 - **Ponderação e justiça com o posto**: fórmula de pesos (recência, dimensões, similaridade de perfil), impacto em `reviews` e em `place_scores`.
 - **Anti-fraude**: quais sinais (incluindo Google Maps / Places), limites de uso da API, retenção de dados e experiência do usuário legítimo.
 - Autenticação: JWT vs OAuth social; reviews anônimos e limites.
@@ -136,9 +144,10 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 | Termo | Significado |
 |-------|-------------|
 | `place_id` | Identificador estável de um lugar no Google Places; chave externa das avaliações no PostoConfiável. |
+| `station` | Registro do posto na base da aplicação; suporta mapa e detalhe; amarrado a `place_id`. |
 | Snapshot de contexto | Combustível e perfil de veículo **no momento** da avaliação, para não misturar situações incompatíveis no agregado. |
 | Score composto | Número derivado das dimensões e pesos (recência + similaridade de perfil na visualização). |
 
 ---
 
-*Última atualização: documento de planejamento; backend **post-con-back** em evolução (MVP parcial): já existe persistência de `reviews` e linha **`station`** atualizada na criação de review (agregados; nome de exibição ainda placeholder até Places). Modelo `reviews` e ponderação sujeitos a revisão conforme roadmap.*
+*Última atualização: casos de uso e roadmap alinhados a **GET** `station` (lista, detalhe, por região/range), **GET** `reviews` (preview + paginação); MVP 1–5 com evolução para dimensões e score composto.*

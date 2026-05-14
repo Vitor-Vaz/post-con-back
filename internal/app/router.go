@@ -32,7 +32,8 @@ func NewRouter(db *sql.DB) *gin.Engine {
 	})
 
 	repo := repositories.NewReviewsRepository(db)
-	uc := domain.NewReviewCreatorUseCase(repo)
+	stationRepo := repositories.NewStationRepository(db)
+	uc := domain.NewReviewCreatorUseCase(repo, stationRepo)
 	h := v1.NewReviewHandler(uc)
 	apiv1 := r.Group("/api/v1")
 	apiv1.POST("/review", h.CreateReview)

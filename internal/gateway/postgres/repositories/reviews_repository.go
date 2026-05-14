@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/lib/pq"
@@ -15,7 +14,7 @@ type ReviewsRepository struct {
 	q *sqlcgen.Queries
 }
 
-func NewReviewsRepository(db *sql.DB) *ReviewsRepository {
+func NewReviewsRepository(db sqlcgen.DBTX) *ReviewsRepository {
 	return &ReviewsRepository{q: sqlcgen.New(db)}
 }
 
@@ -36,6 +35,17 @@ func (r *ReviewsRepository) InsertReview(ctx context.Context, in domain.CreateRe
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}, nil
+}
+
+func (r *ReviewsRepository) GetRecentReviewStats(ctx context.Context, placeID string, limit int32) (int32, float64, error) {
+	row, err := r.q.GetRecentReviewStats(ctx, sqlcgen.GetRecentReviewStatsParams{
+		PlaceID: placeID,
+		Limit:   limit,
+	})
+	if err != nil {
+		return 0, 0, errors.Join(domain.ErrUnexpected, err)
+	}
+	return row.ReviewCount, row.RatingSum, nil
 }
 
 func mapInsertReviewError(err error) error {

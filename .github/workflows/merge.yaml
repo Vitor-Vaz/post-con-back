@@ -26,6 +26,8 @@ jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/post_confiavel?sslmode=disable
 
     services:
       postgres:
@@ -63,8 +65,6 @@ jobs:
 
       - name: Execute migrations
         run: make migrate-up
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/post_confiavel?sslmode=disable
 
       - name: Execute tests
         run: make test

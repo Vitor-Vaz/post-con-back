@@ -12,7 +12,7 @@ Go 1.22, **Gin**, **PostgreSQL** (`lib/pq`), **env** + **godotenv**, **golang-mi
 
 | Pacote | Papel |
 |--------|--------|
-| `internal/domain` | Entidades, erros de domínio, caso de uso + interface do repo (ex. `ReviewCreatorUseCase`) |
+| `internal/domain` | Entidades, erros de domínio, caso de uso + interfaces de repo (`ReviewCreatorUseCase` atualiza `station` após criar review) |
 | `internal/app` | `router.go` — Gin, `/test`, `/health`, `/api/v1` |
 | `internal/app/v1` | Handlers v1 |
 | `internal/gateway/postgres` | `repositories/`, `sqlcgen/`, `queries/<tabela>/<ação>.sql` |
@@ -24,7 +24,7 @@ Fluxo: **HTTP → domain (use case) → gateway (repo)**.
 ## HTTP útil
 
 - `GET /test`, `GET /health` (ping DB)
-- `POST /api/v1/review` — body: `place_id` (string), `user_id` (UUID JSON), `rating` (1–5); Gin `binding` + trim de `place_id` no handler; erros de domínio mapeados (400/404/409/500)
+- `POST /api/v1/review` — body: `place_id` (string), `user_id` (UUID JSON), `rating` (1–5); Gin `binding` + trim de `place_id`; use case persiste review, recalcula média (até 100 reviews recentes por `place_id`) e **upsert** em `station` (`total_score`, `review_count`; `name` no insert provisório = `place_id` até Places)
 
 ## Makefile
 
@@ -32,7 +32,7 @@ Fluxo: **HTTP → domain (use case) → gateway (repo)**.
 
 ## CI
 
-`.github/workflows/merge.yaml` — em PR/push `main|master`: job **lint** (`make lint`), job **test** (Postgres serviço, `migrate`, `make migrate-up` com `DATABASE_URL` na 5432, `make test`).
+`.github/workflows/merge.yaml` — em PR/push `main|master`: job **lint** (`make lint`), job **test** (Postgres serviço, `DATABASE_URL` em `env` do job apontando para **localhost:5432**, `make migrate-up`, `make test`; testes de integração do domínio leem a mesma variável).
 
 ## Pendências de produto (alto nível)
 

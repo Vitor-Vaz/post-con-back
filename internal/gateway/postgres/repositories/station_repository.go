@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"post-con-back/internal/domain"
@@ -13,7 +12,7 @@ type StationRepository struct {
 	q *sqlcgen.Queries
 }
 
-func NewStationRepository(db *sql.DB) *StationRepository {
+func NewStationRepository(db sqlcgen.DBTX) *StationRepository {
 	return &StationRepository{q: sqlcgen.New(db)}
 }
 

@@ -1,8 +1,13 @@
 package sqlcgen
 
+import (
+	"context"
+)
+
 const upsertStationScore = `
 INSERT INTO station (
     place_id,
+    name,
     total_score,
     review_count,
     updated_at
@@ -10,6 +15,7 @@ INSERT INTO station (
     $1,
     $2,
     $3,
+    $4,
     now()
 )
 ON CONFLICT (place_id) DO UPDATE SET
@@ -25,7 +31,7 @@ type UpsertStationScoreParams struct {
 }
 
 func (q *Queries) UpsertStationScore(ctx context.Context, arg UpsertStationScoreParams) error {
-	if _, err := q.db.ExecContext(ctx, upsertStationScore, arg.PlaceID, arg.TotalScore, arg.ReviewCount); err != nil {
+	if _, err := q.db.ExecContext(ctx, upsertStationScore, arg.PlaceID, arg.PlaceID, arg.TotalScore, arg.ReviewCount); err != nil {
 		return err
 	}
 	return nil

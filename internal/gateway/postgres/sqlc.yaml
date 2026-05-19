@@ -3,7 +3,9 @@ sql:
   - engine: postgresql
     schema:
       - ../../../extension/database/priv/migrations
-    queries: queries/
+    queries:
+      - queries/station
+      - queries/reviews
     gen:
       go:
         package: sqlcgen

@@ -85,6 +85,7 @@ HTTP (Gin handler em internal/app/v1)
 | GET | `/test` | smoke string |
 | GET | `/health` | ping Postgres (timeout curto) |
 | POST | `/api/v1/review` | corpo JSON: `place_id`, `user_id` (UUID), `rating` (1–5) |
+| GET | `/api/v1/stations` | lista postos paginada; query `page` (default 1), 10 itens por página |
 
 Novas rotas: registrar em `internal/app/router.go` (ou sub-rotas por versão em `internal/app/v1`).
 

@@ -8,4 +8,4 @@ INSERT INTO reviews (
     $2,
     $3
 )
-RETURNING id, place_id, user_id, rating, created_at, updated_at
+RETURNING id, place_id, user_id, rating, created_at, updated_at;

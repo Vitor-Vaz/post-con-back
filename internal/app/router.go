@@ -33,10 +33,13 @@ func NewRouter(db *sql.DB) *gin.Engine {
 
 	repo := repositories.NewReviewsRepository(db)
 	stationRepo := repositories.NewStationRepository(db)
-	uc := domain.NewReviewCreatorUseCase(repo, stationRepo)
-	h := v1.NewReviewHandler(uc)
+	reviewUC := domain.NewReviewCreatorUseCase(repo, stationRepo)
+	reviewHandler := v1.NewReviewHandler(reviewUC)
+	getStationsUC := domain.NewGetStationsUseCase(stationRepo)
+	stationsHandler := v1.NewStationsHandler(getStationsUC)
 	apiv1 := r.Group("/api/v1")
-	apiv1.POST("/review", h.CreateReview)
+	apiv1.POST("/review", reviewHandler.CreateReview)
+	apiv1.GET("/stations", stationsHandler.GetStations)
 
 	return r
 }

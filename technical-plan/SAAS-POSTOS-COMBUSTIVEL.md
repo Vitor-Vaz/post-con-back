@@ -44,7 +44,7 @@ Sistema de **5 estrelas** como base, com regras de ponderação documentadas e v
 | Área | Decisão |
 |------|---------|
 | Backend | Go, framework **Gin**, **PostgreSQL** |
-| Arquitetura | Clean Architecture + SOLID: `cmd/`, `internal/api`, `internal/domain`, `internal/usecase`, `internal/repository` (ou gateway), `internal/integration` (Google), `pkg/` se necessário |
+| Arquitetura | Clean Architecture + SOLID: `cmd/server`, `internal/app` (HTTP), `internal/domain` (casos de uso), `internal/gateway/postgres` (sqlc + repositórios), `extension/database` (migrações); `internal/integration` (Google) **a criar** |
 | Front | Ainda não definido; a API deve expor contratos estáveis (JSON / OpenAPI) |
 | Postos | Não armazenar o catálogo nacional como fonte da verdade; **vincular** tudo ao **`place_id`** do Google Places |
 | Mapas | Integração com **Google Maps Platform** (Places para busca/detalhes; Maps JavaScript API no front quando existir) |
@@ -55,8 +55,8 @@ Sistema de **5 estrelas** como base, com regras de ponderação documentadas e v
 
 Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliações**, **ver mapa**, **listar stations**:
 
-- **`station`**: `place_id`, dados de listagem/detalhe, coordenadas quando houver; suporta mapa e **GET** por região (ver backlog: **range** em coluna vs só parâmetro de busca).
-- **`reviews`**: identificador, `place_id` (Google), usuário (ou política para anônimo com limites), notas por dimensão (ex.: 1–5), **snapshot de contexto** na data da avaliação (combustível, perfil de veículo), timestamps. **No backend atual** a tabela `reviews` é **provisória** e será **revista** quando a **ponderação** e a política de **justiça com o posto** estiverem definidas (podem surgir colunas ou tabelas auxiliares).
+- **`station`** *(implementada — migração `000003`)*: `id` (UUID), `place_id` (único), `name`, `address`, `latitude`, `longitude`, `total_score`, `review_count`, `summary`, `created_at`, `updated_at`. Hoje `total_score` / `review_count` são atualizados no **POST review** (média das últimas 100 avaliações do `place_id`; nome inicial do posto = `place_id` até integração Places). Coordenadas e endereço existem no schema, mas ainda não são preenchidos pela API.
+- **`reviews`** *(implementada — migração `000002`)*: `id`, `place_id`, `user_id` (UUID, sem FK em `users`), `rating` (1–5), timestamps. **Provisória** para evolução de ponderação, dimensões e snapshot veículo/combustível.
 - **`users`**: quando houver login; autenticação (JWT, OAuth, etc.) a decidir.
 - **`vehicle_profile`**: no MVP pode ser colunas enumeradas ou JSON enxuto ligado à review (motor aspirado/turbo, faixa de exigência, flex predominante álcool vs gasolina, etc.).
 - **`place_scores`**: agregados por `place_id` — médias por dimensão, score composto, contagem de reviews, `last_computed_at`; recálculo no write ou job assíncrono.
@@ -80,30 +80,74 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ## Casos de uso (backend)
 
-| Caso de uso | Descrição |
-|-------------|-----------|
-| Avaliar | Criar review com `place_id` validado (ex.: Details uma vez), contexto veículo/combustível, dimensões; atualizar agregados. |
-| Ver avaliações | `GET` por `place_id`: **preview** com `limit=10`; mesma rota com **`limit` maior + paginação** para lista completa; filtros por combustível/perfil e score por perfil ficam para depois do MVP simples. |
-| Ver mapa | Combinar busca Places com a área solicitada; decisão de MVP: mapa tende a precisar Places para mostrar postos ainda sem review. |
-| Listar stations | `GET` lista **genérica** no primeiro corte; evoluir para **região + range** (centro/viewport + distância) para alimentar mapa/lista. |
-| Obter station | `GET` **detalhe** de uma `station` (id interno ou `place_id`). |
+| Caso de uso | Descrição | Status |
+|-------------|-----------|--------|
+| Avaliar | Criar review com `place_id`; atualizar agregados na `station`. | **Feito (MVP)** — `POST /api/v1/review`; sem validação Places nem dimensões extras. |
+| Listar stations | Lista paginada de postos já persistidos. | **Feito** — `GET /api/v1/stations` (plural = coleção). |
+| Obter station | Detalhe de um posto por `place_id`. | **Feito** — `GET /api/v1/station/:place_id` (singular = um recurso). |
+| Ver avaliações | `GET` por `place_id` com preview e paginação. | **Pendente** |
+| Ver mapa | Postos por região (geo + range), possivelmente Places. | **Pendente** |
+
+### Convenção de rotas HTTP (decidida)
+
+| Recurso | Padrão | Exemplo |
+|---------|--------|---------|
+| Coleção | substantivo **plural** | `GET /api/v1/stations` |
+| Item único | substantivo **singular** + `place_id` no path | `GET /api/v1/station/:place_id` |
+
+Chave canônica do posto na API: **`place_id`** (Google Places).
 
 ---
 
-## Roadmap sugerido (fases)
+## API HTTP — entregue até agora
+
+Rotas operacionais além de `/test` e `/health` (ping Postgres):
+
+| Método | Caminho | Descrição |
+|--------|---------|-----------|
+| POST | `/api/v1/review` | Body JSON: `place_id`, `user_id` (UUID), `rating` (1–5). Cria review e faz upsert de `total_score` / `review_count` na `station`. |
+| GET | `/api/v1/stations` | Lista postos; query `page` (opcional, default `1`); **10 itens por página**; resposta `{ data, pagination }`. |
+| GET | `/api/v1/station/:place_id` | Um posto; resposta com todos os campos persistidos (`id`, `place_id`, `name`, `address`, coordenadas, scores, `summary`, timestamps). `404` se não existir. |
+
+**Camadas:** handler (`internal/app/v1`) → caso de uso (`internal/domain`) → repositório + sqlc (`internal/gateway/postgres`). Validação de entrada na borda HTTP; erros de domínio mapeados para status HTTP.
+
+**Persistência:** queries sqlc em `internal/gateway/postgres/queries/*.sql`; `make sqlc-gen` após alterar SQL.
+
+---
+
+## Estado do roadmap (progresso real)
+
+| Fase | Entrega | Status |
+|------|---------|--------|
+| 0 | Documentação, README, plano técnico | **Em curso** (este arquivo + `AGENTS.md`) |
+| 1 | Esqueleto Go + Gin, healthcheck, migrações Postgres, Docker local | **Feito** |
+| 2 | Domínio + persistência: `reviews`, `station`, repositórios, sqlc | **Feito (MVP)** |
+| 3 | Integração Google Places | **Pendente** |
+| 4 | API HTTP: lista + detalhe `station`, GET `reviews`, OpenAPI | **Parcial** — lista e detalhe **feitos**; reviews e OpenAPI **pendentes** |
+| 5 | Mapa: GET `station` por região (range + geo) | **Pendente** |
+| 6 | Agregação: `place_scores`, recência | **Pendente** (hoje agregado simplificado na própria `station`) |
+| 7 | Revisar `reviews` para ponderação | **Pendente** |
+| 8 | Anti-fraude e confiança | **Pendente** |
+| 9 | Front + qualidade ampliada | **Pendente** |
+
+---
+
+## Roadmap sugerido (fases) — visão de entregas
+
+Referência de escopo futuro; progresso detalhado na tabela **Estado do roadmap** acima.
 
 | Fase | Entrega |
 |------|---------|
 | 0 | Documentação (este arquivo), README, ADRs leves (`place_id` como chave; fórmula de score v1) |
-| 1 | Esqueleto Go + Gin: `cmd/server`, config por env, healthcheck, logging, shutdown gracioso, migrações PostgreSQL |
-| 2 | Domínio + persistência: `Review`, repositórios, índices em `place_id` e `created_at` |
+| 1 | Esqueleto Go + Gin: `cmd/server`, config por env, healthcheck, migrações PostgreSQL |
+| 2 | Domínio + persistência: `reviews`, `station`, repositórios sqlc |
 | 3 | Integração Google Places: cliente em `internal/integration/googlemaps`, timeouts, retries, testes com mocks |
-| 4 | API HTTP: handlers finos, use cases, validação, OpenAPI — **GET** lista **`station`** (genérica), **GET** detalhe **`station`**, **GET** **`reviews`** por `place_id` (`limit=10` default / preview; mesma rota com paginação e `limit` maior) |
-| 5 | Mapa na API: **GET `station` por região** (range + geo); fechar decisão de **range** em `station` vs só query; índices geográficos |
+| 4 | API HTTP: **GET** `/api/v1/stations` (lista paginada), **GET** `/api/v1/station/:place_id` (detalhe), **GET** `reviews` por `place_id`, OpenAPI |
+| 5 | Mapa na API: postos por **região** (range + geo); índices geográficos; decisão Places vs só base local |
 | 6 | Agregação: `place_scores`, política de recência |
-| 7 | Modelagem e migrações: **revisar `reviews`** (e correlatos) para suportar **ponderação** e rastreabilidade; fórmula de equidade com o posto **a definir** com produto |
-| 8 | **Anti-fraude e confiança**: regras contra reviews falsos; uso complementar de **Google Maps / Places** (validação contextual, sinais de lugar), dentro de termos, cotas e LGPD |
-| 9 | Qualidade (integração/CI) e **front** futuro: stack a definir; consumo da mesma API e mapa |
+| 7 | Modelagem: **revisar `reviews`** para ponderação e contexto de veículo/combustível |
+| 8 | Anti-fraude e confiança (incl. sinais Maps/Places dentro dos termos) |
+| 9 | Front futuro e evolução de qualidade/deploy |
 
 ---
 
@@ -127,8 +171,10 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ## Backlog de decisões pendentes
 
+- **Preencher `station` com dados Places:** nome, endereço e coordenadas reais no create/upsert (hoje `name` = `place_id` no primeiro review).
 - **`station` + range:** coluna(s) de **alcance** na tabela vs **range só na rota**; request (raio km, bbox); índices geo.
 - **GET stations por região:** parâmetros obrigatórios, teto de linhas, ordenação; postos sem review via Places na mesma resposta ou fluxo separado.
+- **Paginação da lista:** hoje offset por `page` fixo em 10 itens; evoluir cursor, `page_size` configurável ou teto máximo documentado.
 - **GET reviews:** `limit` máximo; paginação (`cursor` vs offset); ordenação (ex.: `created_at` DESC).
 - **Ponderação e justiça com o posto**: fórmula de pesos (recência, dimensões, similaridade de perfil), impacto em `reviews` e em `place_scores`.
 - **Anti-fraude**: quais sinais (incluindo Google Maps / Places), limites de uso da API, retenção de dados e experiência do usuário legítimo.
@@ -150,4 +196,4 @@ Base para tabelas futuras, alinhado aos casos de uso **avaliar**, **ver avaliaç
 
 ---
 
-*Última atualização: casos de uso e roadmap alinhados a **GET** `station` (lista, detalhe, por região/range), **GET** `reviews` (preview + paginação); MVP 1–5 com evolução para dimensões e score composto.*
+*Última atualização: maio/2026 — backend com **POST review**, **GET stations** (lista paginada, 10/página), **GET station/:place_id** (detalhe); convenção plural/singular nas rotas; fases 1–2 concluídas no MVP; fase 4 parcial. Próximos passos naturais: **GET reviews**, Places, mapa por região.*

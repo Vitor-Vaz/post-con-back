@@ -31,8 +31,9 @@ func (s *stubStationsGetter) GetStations(ctx context.Context, page int) (domain.
 }
 
 func newStationsRouter(uc v1.StationsGetter) *gin.Engine {
+	getStub := &stubStationByPlaceIDGetter{}
 	r := gin.New()
-	h := v1.NewStationsHandler(uc)
+	h := v1.NewStationsHandler(uc, getStub)
 	r.GET("/api/v1/stations", h.GetStations)
 	return r
 }

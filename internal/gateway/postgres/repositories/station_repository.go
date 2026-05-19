@@ -52,6 +52,17 @@ func (r *StationRepository) CountStations(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
+func (r *StationRepository) GetStationByPlaceID(ctx context.Context, placeID string) (domain.Station, error) {
+	row, err := r.q.GetStationByPlaceID(ctx, placeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.Station{}, domain.ErrNotFound
+		}
+		return domain.Station{}, errors.Join(domain.ErrUnexpected, err)
+	}
+	return mapStationRow(row), nil
+}
+
 func mapStationRow(row sqlcgen.Station) domain.Station {
 	return domain.Station{
 		ID:          row.ID,

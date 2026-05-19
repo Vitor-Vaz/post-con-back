@@ -20,6 +20,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install linters
+        run: make install-linters
+
       - name: Run lint
         run: make lint
 

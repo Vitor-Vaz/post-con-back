@@ -110,7 +110,8 @@ Novas rotas: registrar em `internal/app/router.go` (ou sub-rotas por versão em 
 ## Comandos (fonte de verdade: Makefile)
 
 ```bash
-make lint        # gofmt (só git ls-files '*.go'), go vet, go build
+make install-linters  # golangci-lint e staticcheck (versões no Makefile)
+make lint             # gofmt, go vet, go build, golangci-lint, staticcheck
 make test
 make run
 make migrate-up | migrate-down | migrate-drop

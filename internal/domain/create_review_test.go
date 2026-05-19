@@ -15,7 +15,7 @@ import (
 
 func TestCreateReviewUseCase(t *testing.T) {
 	tx := testhelpers.SetupTestDB(t)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	reviewsRepo := repositories.NewReviewsRepository(tx)
 	stationRepo := repositories.NewStationRepository(tx)

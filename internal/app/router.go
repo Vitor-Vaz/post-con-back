@@ -31,15 +31,18 @@ func NewRouter(db *sql.DB) *gin.Engine {
 		c.String(http.StatusOK, "ok")
 	})
 
+	# TODO: move use cases to main file
 	repo := repositories.NewReviewsRepository(db)
 	stationRepo := repositories.NewStationRepository(db)
 	reviewUC := domain.NewReviewCreatorUseCase(repo, stationRepo)
 	reviewHandler := v1.NewReviewHandler(reviewUC)
 	getStationsUC := domain.NewGetStationsUseCase(stationRepo)
-	stationsHandler := v1.NewStationsHandler(getStationsUC)
+	getStationByPlaceIDUC := domain.NewGetStationByPlaceIDUseCase(stationRepo)
+	stationsHandler := v1.NewStationsHandler(getStationsUC, getStationByPlaceIDUC)
 	apiv1 := r.Group("/api/v1")
 	apiv1.POST("/review", reviewHandler.CreateReview)
 	apiv1.GET("/stations", stationsHandler.GetStations)
+	apiv1.GET("/station/:place_id", stationsHandler.GetStation)
 
 	return r
 }

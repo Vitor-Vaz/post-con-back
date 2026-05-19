@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,17 @@ type StationsGetter interface {
 	GetStations(ctx context.Context, page int) (domain.GetStationsOutput, error)
 }
 
-type StationsHandler struct {
-	uc StationsGetter
+type StationByPlaceIDGetter interface {
+	GetStationByPlaceID(ctx context.Context, placeID string) (domain.Station, error)
 }
 
-func NewStationsHandler(uc StationsGetter) *StationsHandler {
-	return &StationsHandler{uc: uc}
+type StationsHandler struct {
+	listUC StationsGetter
+	getUC  StationByPlaceIDGetter
+}
+
+func NewStationsHandler(listUC StationsGetter, getUC StationByPlaceIDGetter) *StationsHandler {
+	return &StationsHandler{listUC: listUC, getUC: getUC}
 }
 
 type stationResponse struct {
@@ -61,7 +67,7 @@ func (h *StationsHandler) GetStations(c *gin.Context) {
 		page = parsed
 	}
 
-	out, err := h.uc.GetStations(c.Request.Context(), page)
+	out, err := h.listUC.GetStations(c.Request.Context(), page)
 	switch {
 	case errors.Is(err, domain.ErrBadParams):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -73,19 +79,7 @@ func (h *StationsHandler) GetStations(c *gin.Context) {
 
 	data := make([]stationResponse, 0, len(out.Stations))
 	for _, s := range out.Stations {
-		data = append(data, stationResponse{
-			ID:          s.ID.String(),
-			PlaceID:     s.PlaceID,
-			Name:        s.Name,
-			Address:     s.Address,
-			Latitude:    s.Latitude,
-			Longitude:   s.Longitude,
-			TotalScore:  s.TotalScore,
-			ReviewCount: s.ReviewCount,
-			Summary:     s.Summary,
-			CreatedAt:   s.CreatedAt.Format(time.RFC3339Nano),
-			UpdatedAt:   s.UpdatedAt.Format(time.RFC3339Nano),
-		})
+		data = append(data, toStationResponse(s))
 	}
 
 	c.JSON(http.StatusOK, getStationsResponse{
@@ -97,6 +91,45 @@ func (h *StationsHandler) GetStations(c *gin.Context) {
 			TotalPages: totalPages(out.Total, out.PageSize),
 		},
 	})
+}
+
+func (h *StationsHandler) GetStation(c *gin.Context) {
+	placeID := strings.TrimSpace(c.Param("place_id"))
+	if placeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrBadParams.Error()})
+		return
+	}
+
+	station, err := h.getUC.GetStationByPlaceID(c.Request.Context(), placeID)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	case errors.Is(err, domain.ErrBadParams):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrUnexpected.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toStationResponse(station))
+}
+
+func toStationResponse(s domain.Station) stationResponse {
+	return stationResponse{
+		ID:          s.ID.String(),
+		PlaceID:     s.PlaceID,
+		Name:        s.Name,
+		Address:     s.Address,
+		Latitude:    s.Latitude,
+		Longitude:   s.Longitude,
+		TotalScore:  s.TotalScore,
+		ReviewCount: s.ReviewCount,
+		Summary:     s.Summary,
+		CreatedAt:   s.CreatedAt.Format(time.RFC3339Nano),
+		UpdatedAt:   s.UpdatedAt.Format(time.RFC3339Nano),
+	}
 }
 
 func totalPages(total int64, pageSize int) int {

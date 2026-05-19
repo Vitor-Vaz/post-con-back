@@ -41,6 +41,24 @@ func sampleStation() domain.Station {
 	}
 }
 
+func sampleStationSuccessJSON(t *testing.T) string {
+	t.Helper()
+	wantObj := map[string]any{
+		"id":           stationsTestStationID.String(),
+		"place_id":     "ChIJx",
+		"name":         "Posto Test",
+		"address":      stationsTestAddress,
+		"total_score":  4.5,
+		"review_count": float64(10),
+		"summary":      stationsTestSummary,
+		"created_at":   stationsTestTime.Format(time.RFC3339Nano),
+		"updated_at":   stationsTestTime.Format(time.RFC3339Nano),
+	}
+	wantJSON, err := json.Marshal(wantObj)
+	require.NoError(t, err)
+	return string(wantJSON)
+}
+
 func sampleGetStationsSuccessJSON(t *testing.T) string {
 	t.Helper()
 	wantSuccessObj := map[string]any{

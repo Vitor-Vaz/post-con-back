@@ -1,4 +1,4 @@
--- name: ListStations :many
+-- name: GetStations :many
 SELECT
     id,
     place_id,

@@ -29,8 +29,8 @@ func (r *StationRepository) UpsertStationScore(ctx context.Context, placeID stri
 	return nil
 }
 
-func (r *StationRepository) ListStations(ctx context.Context, limit int32, offset int32) ([]domain.Station, error) {
-	rows, err := r.q.ListStations(ctx, sqlcgen.ListStationsParams{
+func (r *StationRepository) GetStations(ctx context.Context, limit int32, offset int32) ([]domain.Station, error) {
+	rows, err := r.q.GetStations(ctx, sqlcgen.GetStationsParams{
 		Limit:  limit,
 		Offset: offset,
 	})

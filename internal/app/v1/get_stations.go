@@ -12,15 +12,15 @@ import (
 	"post-con-back/internal/domain"
 )
 
-type StationsLister interface {
-	ListStations(ctx context.Context, page int) (domain.ListStationsOutput, error)
+type StationsGetter interface {
+	GetStations(ctx context.Context, page int) (domain.GetStationsOutput, error)
 }
 
 type StationsHandler struct {
-	uc StationsLister
+	uc StationsGetter
 }
 
-func NewStationsHandler(uc StationsLister) *StationsHandler {
+func NewStationsHandler(uc StationsGetter) *StationsHandler {
 	return &StationsHandler{uc: uc}
 }
 
@@ -45,7 +45,7 @@ type paginationResponse struct {
 	TotalPages int   `json:"total_pages"`
 }
 
-type listStationsResponse struct {
+type getStationsResponse struct {
 	Data       []stationResponse  `json:"data"`
 	Pagination paginationResponse `json:"pagination"`
 }
@@ -61,14 +61,13 @@ func (h *StationsHandler) GetStations(c *gin.Context) {
 		page = parsed
 	}
 
-	out, err := h.uc.ListStations(c.Request.Context(), page)
-	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrBadParams):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrUnexpected.Error()})
-		}
+	out, err := h.uc.GetStations(c.Request.Context(), page)
+	switch {
+	case errors.Is(err, domain.ErrBadParams):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrUnexpected.Error()})
 		return
 	}
 
@@ -89,7 +88,7 @@ func (h *StationsHandler) GetStations(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, listStationsResponse{
+	c.JSON(http.StatusOK, getStationsResponse{
 		Data: data,
 		Pagination: paginationResponse{
 			Page:       out.Page,

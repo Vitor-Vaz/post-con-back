@@ -8,10 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,32 +17,30 @@ import (
 	"post-con-back/internal/domain"
 )
 
-const stationsAPIPath = "/api/v1/stations"
-
-type stubStationsLister struct {
-	result  domain.ListStationsOutput
-	err     error
+type stubStationsGetter struct {
+	result   domain.GetStationsOutput
+	err      error
 	lastPage int
-	callCnt int
+	callCnt  int
 }
 
-func (s *stubStationsLister) ListStations(ctx context.Context, page int) (domain.ListStationsOutput, error) {
+func (s *stubStationsGetter) GetStations(ctx context.Context, page int) (domain.GetStationsOutput, error) {
 	s.callCnt++
 	s.lastPage = page
 	return s.result, s.err
 }
 
-func newStationsRouter(uc v1.StationsLister) *gin.Engine {
+func newStationsRouter(uc v1.StationsGetter) *gin.Engine {
 	r := gin.New()
 	h := v1.NewStationsHandler(uc)
-	r.GET(stationsAPIPath, h.GetStations)
+	r.GET("/api/v1/stations", h.GetStations)
 	return r
 }
 
 type getStationsCase struct {
 	name           string
 	query          string
-	stubResult     domain.ListStationsOutput
+	stubResult     domain.GetStationsOutput
 	stubErr        error
 	wantStatus     int
 	wantErrExact   string
@@ -54,52 +50,8 @@ type getStationsCase struct {
 }
 
 func TestGetStations(t *testing.T) {
-	ts := time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC)
-	stationID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	address := "Rua A, 1"
-	summary := "Bom posto"
-
-	successOut := domain.ListStationsOutput{
-		Stations: []domain.Station{
-			{
-				ID:          stationID,
-				PlaceID:     "ChIJx",
-				Name:        "Posto Test",
-				Address:     &address,
-				TotalScore:  4.5,
-				ReviewCount: 10,
-				Summary:     &summary,
-				CreatedAt:   ts,
-				UpdatedAt:   ts,
-			},
-		},
-		Page:     1,
-		PageSize: domain.StationsPageSize,
-		Total:    25,
-	}
-	wantSuccessObj := map[string]any{
-		"data": []any{
-			map[string]any{
-				"id":           stationID.String(),
-				"place_id":     "ChIJx",
-				"name":         "Posto Test",
-				"address":      address,
-				"total_score":  4.5,
-				"review_count": float64(10),
-				"summary":      summary,
-				"created_at":   ts.Format(time.RFC3339Nano),
-				"updated_at":   ts.Format(time.RFC3339Nano),
-			},
-		},
-		"pagination": map[string]any{
-			"page":        float64(1),
-			"page_size":   float64(domain.StationsPageSize),
-			"total":       float64(25),
-			"total_pages": float64(3),
-		},
-	}
-	wantSuccessJSON, err := json.Marshal(wantSuccessObj)
-	require.NoError(t, err)
+	successOut := sampleGetStationsOutput()
+	wantSuccessJSON := sampleGetStationsSuccessJSON(t)
 
 	tests := []getStationsCase{
 		{
@@ -108,7 +60,7 @@ func TestGetStations(t *testing.T) {
 			wantStatus:     http.StatusOK,
 			wantCalls:      1,
 			wantPage:       1,
-			wantRespJSONEq: string(wantSuccessJSON),
+			wantRespJSONEq: wantSuccessJSON,
 		},
 		{
 			name:           "successful list explicit page",
@@ -117,7 +69,7 @@ func TestGetStations(t *testing.T) {
 			wantStatus:     http.StatusOK,
 			wantCalls:      1,
 			wantPage:       2,
-			wantRespJSONEq: string(wantSuccessJSON),
+			wantRespJSONEq: wantSuccessJSON,
 		},
 		{
 			name:         "invalid page zero",
@@ -152,11 +104,11 @@ func TestGetStations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stub := &stubStationsLister{result: tt.stubResult, err: tt.stubErr}
+			stub := &stubStationsGetter{result: tt.stubResult, err: tt.stubErr}
 			srv := httptest.NewServer(newStationsRouter(stub))
 			defer srv.Close()
 
-			req, err := http.NewRequest(http.MethodGet, srv.URL+stationsAPIPath+tt.query, nil)
+			req, err := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/stations"+tt.query, nil)
 			require.NoError(t, err)
 
 			resp, err := http.DefaultClient.Do(req)

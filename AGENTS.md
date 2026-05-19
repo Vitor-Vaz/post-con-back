@@ -46,7 +46,7 @@ internal/
   domain/                # entidades, erros de domínio, casos de uso, interfaces de repositório
   gateway/postgres/
     repositories/        # implementações que chamam sqlc
-    queries/<recurso>/   # SQL fonte do sqlc
+    queries/             # SQL fonte do sqlc (arquivos `*.sql` na raiz, ex. `station_get_stations.sql`)
     sqlcgen/             # código gerado (commitar quando mudar queries)
     sqlc.yaml
 extension/
@@ -102,7 +102,7 @@ Novas rotas: registrar em `internal/app/router.go` (ou sub-rotas por versão em 
 
 ## sqlc
 
-- Fonte: `internal/gateway/postgres/queries/**/*.sql` + `sqlc.yaml`.
+- Fonte: `internal/gateway/postgres/queries/*.sql` (sqlc 1.31 não varre subpastas; usar `queries/` no `sqlc.yaml`) + `sqlc.yaml`.
 - Após alterar SQL: rodar `make sqlc-gen` (requer CLI `sqlc` instalada) e commitar mudanças em `sqlcgen/`.
 
 ---
